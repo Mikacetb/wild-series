@@ -5,31 +5,62 @@ namespace App\Controller;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use App\Entity\Program;
+use App\Repository\ProgramRepository;
+use App\Repository\CategoryRepository;
 
 Class WildController extends AbstractController
 {
     /**
-     * @Route("/wild", name="wild_index")
+     * Show all rows from Program's entity
+     * @Route("wild/", name="wild_index")
     */
-    public function index() :Response
+    public function index(ProgramRepository $programRepository)
     {
+        $programs = $programRepository->findAll();
+
+        if (!$programs){
+            throw $this->createNotFoundException('No program found in program\'stable.');
+        }
         return $this->render('wild/index.html.twig', [
-                'website' => 'Wild Séries',
+                'programs' => $programs
         ]);
     }
-        /**
-        * @Route("/wild/show/{slug}",
-    *     requirements={"slug"= "[a-z0-9-?]+"},
-    *     defaults={"slug"= "Aucune série sélectionnée"},
-    *     name="wild_show"
-    * )
-    */
-    public function show(string $slug) : Response
+    
+    /**
+     * @Route("/wild/show/{slug<[a-z0-9-]+>}", defaults={"slug" = null}, name="wild_show")
+     */
+    
+     public function show(?string $slug, ProgramRepository $programRepository)
     {
-            $replace = str_replace("-", " ", $slug);
-            $titre=ucwords($replace);
-            return $this->render('wild/show.html.twig', [
-                    'slug' => $titre,
-            ]);
+        if (!$slug) {
+            throw $this
+            ->createNotFoundException('No slug has been sent to find a program in program\'s table.');
+        }
+        
+        $showName = str_replace('-', ' ', $slug);
+        $showName = ucwords($showName);
+        $program = $programRepository->findOneBy(['title' => mb_strtolower($showName)]);
+        return $this->render('wild/show.html.twig', [
+            'showName' => $showName,
+            'program' => $program
+        ]);
+    }
+    
+    /**
+     * @Route("/wild/category/{categoryName<[a-z]+>}", defaults={"categoryName" = null}, name="show_category")
+     */
+    public function showByCategory(string $categoryName, CategoryRepository $categoryRepository, ProgramRepository $programRepository)
+    {
+        $category = $categoryRepository->findBy(['name' => mb_strtolower($categoryName)]);
+        $programs = $programRepository->findBy(
+          ['category' => $category],
+          ['id' => 'DESC'],
+          3
+        );
+        return $this->render('wild/category.html.twig', [
+          'programs' => $programs,
+          'categoryName' => ucwords($categoryName)
+        ]);
     }
 }
